@@ -882,7 +882,7 @@ function CaseStudy() {
               }}
             >
               <video
-                src="/villa.mp4"
+                src="/villa2.mp4"
                 muted
                 playsInline
                 autoPlay
