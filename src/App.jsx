@@ -378,29 +378,44 @@ function Hero() {
   return (
     <section ref={ref} id="top" className="bg-navy rel" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
       <motion.div style={{ position: "absolute", inset: 0, scale }} aria-hidden="true">
-<div
-  style={{
-    position: "absolute",
-    inset: 0,
-    background:
-      "radial-gradient(circle at 70% 35%, rgba(217,234,247,.16) 0%, transparent 32%), linear-gradient(135deg, #102A43 0%, #153653 48%, #081925 100%)",
-  }}
-/>        <div style={{ position: "absolute", width: "70vw", height: "70vw", maxWidth: 900, maxHeight: 900, borderRadius: "50%", top: "-25%", right: "-15%", background: "radial-gradient(circle, rgba(217,234,247,.12) 0%, rgba(217,234,247,0) 68%)" }} />
-        <div style={{ position: "absolute", width: "55vw", height: "55vw", maxWidth: 700, maxHeight: 700, borderRadius: "50%", bottom: "-30%", left: "-18%", background: "radial-gradient(circle, rgba(72,101,129,.22) 0%, rgba(72,101,129,0) 68%)" }} />
+        <video
+          src="/villa-hero.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: "center",
+            display: "block",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(180deg, rgba(8,25,37,.55) 0%, rgba(8,25,37,.25) 35%, rgba(8,25,37,.55) 100%)",
+          }}
+        />
       </motion.div>
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(11,30,48,.05) 0%, rgba(11,30,48,.22) 100%)" }} />
 
       <motion.div className="container rel text-center" style={{ maxWidth: 900, zIndex: 2, opacity, paddingTop: 90, paddingBottom: 90 }}>
         <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} className="caption c-white-45">
           Cinematic Property Films
         </motion.p>
-        <motion.h1 initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.12 }} className="disp c-white" style={{
-  marginTop: 24,
-  fontSize: "clamp(52px, 8vw, 104px)",
-  fontWeight: 400,
-  lineHeight: 0.98,
-  letterSpacing: "-0.045em"
-}}>
+        <motion.h1
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, delay: 0.12 }}
+          className="disp c-white"
+          style={{ marginTop: 24, fontSize: "clamp(52px, 8vw, 104px)", fontWeight: 400, lineHeight: 0.98, letterSpacing: "-0.045em" }}
+        >
           Make them feel
           <br />
           the space.
