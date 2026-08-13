@@ -379,7 +379,7 @@ function Hero() {
     <section ref={ref} id="top" className="bg-navy rel" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
       <motion.div style={{ position: "absolute", inset: 0, scale }} aria-hidden="true">
         <video
-          src="/villa-hero.mp4"
+          src="/villa2.mp4"
           autoPlay
           muted
           loop
