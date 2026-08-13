@@ -371,18 +371,45 @@ function Nav() {
 
 function Hero() {
   const ref = useRef(null);
+  const videoRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   const scale = useTransform(scrollYProgress, [0, 1], [1, 1.08]);
   const opacity = useTransform(scrollYProgress, [0, 0.75], [1, 0]);
+
+  // Adjust these two numbers (in seconds) until the caption is skipped
+  const START_TIME = 3;
+  const END_TIME = 13;
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleLoaded = () => {
+      video.currentTime = START_TIME;
+      video.play().catch(() => {});
+    };
+    const handleTimeUpdate = () => {
+      if (video.currentTime >= END_TIME) {
+        video.currentTime = START_TIME;
+      }
+    };
+
+    video.addEventListener("loadedmetadata", handleLoaded);
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    return () => {
+      video.removeEventListener("loadedmetadata", handleLoaded);
+      video.removeEventListener("timeupdate", handleTimeUpdate);
+    };
+  }, []);
 
   return (
     <section ref={ref} id="top" className="bg-navy rel" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
       <motion.div style={{ position: "absolute", inset: 0, scale }} aria-hidden="true">
         <video
+          ref={videoRef}
           src="/Villa2.mp4"
           autoPlay
           muted
-          loop
           playsInline
           preload="auto"
           style={{
@@ -391,7 +418,7 @@ function Hero() {
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            objectPosition: "center",
+            objectPosition: "right bottom",
             display: "block",
           }}
         />
@@ -434,7 +461,6 @@ function Hero() {
     </section>
   );
 }
-
 /* ------------------------------------------------------------------ */
 /*  Introduction                                                       */
 /* ------------------------------------------------------------------ */
