@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { BrowserRouter, Routes, Route, useLocation, NavLink, Link } from "react-router-dom";
+
 import {
-  Home,
+  motion,
+  AnimatePresence,
+  useScroll,
+  useTransform,
+} from "framer-motion";
+
+import {
+  Home as HomeIcon,
   Hotel,
   Building2,
   Building,
@@ -19,16 +27,42 @@ import {
 
 /* ================================================================== */
 /*  ALVARA — Cinematic Property Films                                  */
-/*  Blue / white architectural identity. Plain CSS is used for all     */
-/*  color, spacing and responsive rules (Tailwind's arbitrary-value    */
-/*  syntax isn't available in this renderer), so the design system is  */
-/*  defined once below and referenced through classNames.              */
+/*  Blue / white architectural identity, multi-page (react-router).    */
+/*  Plain CSS handles all color/spacing/responsive rules (Tailwind's   */
+/*  arbitrary-value syntax isn't available in this renderer).          */
 /*                                                                      */
-/*  NOTE ON SEO (see section 34 of the brief): title, meta description,*/
-/*  Open Graph tags and schema markup live in the document <head> of a */
-/*  real deployment (index.html or a framework's head/meta API) and    */
-/*  can't be set from inside this component — flagged here so it isn't */
-/*  forgotten when this is wired into an actual site.                  */
+/*  FULL-PASS FIX NOTES (so future edits know why things look like     */
+/*  this):                                                              */
+/*  - PageHeader gives every non-home page a consistent "you've         */
+/*    arrived" moment under the fixed nav, instead of content sitting   */
+/*    flush against it.                                                 */
+/*  - Shared components (Portfolio, Services, Process, About, Contact)  */
+/*    take a `showHeading` prop so their own eyebrow/title only render  */
+/*    on Home, where there's no separate PageHeader. On subpages,       */
+/*    PageHeader carries that job instead, avoiding duplicate titles.   */
+/*  - Nav no longer needs an IntersectionObserver: since sections now   */
+/*    live on separate routes, NavLink's built-in isActive is the       */
+/*    single source of truth for "which nav item is active."            */
+/*  - ViewfinderCursor now uses event delegation (mouseover on          */
+/*    document) instead of querying .portfolio-video once on mount —    */
+/*    the old approach broke after any route change since Portfolio's   */
+/*    video elements get unmounted/remounted by the router.             */
+/*  - Footer links point at real routes via <Link>, not /#anchor hrefs  */
+/*    that no longer correspond to anything on the page.                */
+/*  - Added ScrollToTop so navigating between routes doesn't leave you  */
+/*    stranded mid-scroll on the new page.                              */
+/*  - Hero's eyebrow/subhead/footer line were left empty from an        */
+/*    earlier edit — restored to real copy so there's no dead gap.      */
+/*  - VisualStatement is now a real full-bleed video section (uses the  */
+/*    apartment clip, not the hero's villa clip, so it doesn't repeat   */
+/*    footage) instead of an empty, unrendered function.                */
+/*                                                                      */
+/*  NOTE ON SEO (see section 34 of the original brief): title, meta     */
+/*  description, Open Graph tags and schema markup live in the          */
+/*  document <head> of a real deployment and can't be set from inside   */
+/*  this component — flagged so it isn't forgotten when this is wired   */
+/*  into an actual production build (e.g. via react-helmet or a         */
+/*  framework's head API, per route).                                   */
 /* ================================================================== */
 
 const css = `
@@ -122,21 +156,23 @@ const css = `
   /* nav */
   .nav{position:fixed;top:0;left:0;right:0;z-index:50;transition:all .4s ease;background:transparent;}
   .nav.scrolled{background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-bottom:1px solid rgba(16,42,67,.06);}
-  .nav-link{position:relative;font-size:13px;letter-spacing:.02em;text-decoration:none;color:inherit;opacity:.75;transition:opacity .25s;padding-bottom:4px;}
+  .nav.always-visible{background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-bottom:1px solid rgba(16,42,67,.08);}
+  .nav-link{position:relative;font-size:13px;letter-spacing:.02em;text-decoration:none;color:inherit;opacity:.75;transition:opacity .25s;padding-bottom:8px;}
+  .nav-link::after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:2px;background:transparent;opacity:0;transition:opacity .18s, background .18s;}
   .nav-link:hover{opacity:1;}
   .nav-link.active{opacity:1;}
-  .nav-link.active::after{content:"";position:absolute;left:0;right:0;bottom:-4px;height:1px;background:var(--slate);}
+  .nav-link.active::after{opacity:1; background:var(--navy);}
   .nav-logo{font-size:19px;letter-spacing:.02em;text-decoration:none;color:inherit;font-weight:500;}
   .nav-sub{font-size:10px;letter-spacing:.16em;text-transform:uppercase;opacity:.5;margin-left:10px;font-family:'Inter',sans-serif;}
 
   .edge{border:1px solid rgba(16,42,67,.1);}
   .edge-white{border:1px solid rgba(255,255,255,.15);}
   .card-hover{transition:box-shadow .35s, border-color .35s, background .35s, transform .35s;}
-.card-hover:hover{
-  border-color:rgba(72,101,129,.4);
-  box-shadow:0 18px 45px rgba(16,42,67,.10);
-  transform:translateY(-4px);
-}
+  .card-hover:hover{
+    border-color:rgba(72,101,129,.4);
+    box-shadow:0 18px 45px rgba(16,42,67,.10);
+    transform:translateY(-4px);
+  }
   .service-cell:hover{background:var(--pale);}
 
   .media-navy{background:linear-gradient(135deg,#16324f,#102A43,#0b1e30);}
@@ -150,9 +186,9 @@ const css = `
   .media-inner{position:absolute;inset:-4%;animation:kenburns 18s ease-in-out infinite alternate;}
   .media-panel{position:relative;overflow:hidden;transition:transform .5s ease;}
   .media-panel:hover .media-inner{animation-play-state:paused;}
-.pf-card:hover .media-panel{
-  transform:scale(1.025);
-}
+  .pf-card:hover .media-panel{
+    transform:scale(1.025);
+  }
   .play-circle{width:54px;height:54px;border-radius:999px;border:1px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;}
   .play-circle.dark{border-color:rgba(16,42,67,.3);}
 
@@ -211,6 +247,30 @@ function PlanLines({ opacity = 0.5, stroke = "#486581" }) {
   );
 }
 
+/* Shared page-header band. Every subpage opens with this so there's a
+   consistent "you've arrived" moment under the fixed nav, instead of
+   content sitting flush against it (this is what was missing on the
+   Contact page specifically). Home skips this — the hero does the job. */
+function PageHeader({ eyebrow, title, subtitle }) {
+  return (
+    <section className="bg-cloud" style={{ paddingTop: 160, paddingBottom: 64 }}>
+      <div className="container" style={{ maxWidth: 780 }}>
+        <Reveal>
+          <span className="eyebrow">{eyebrow}</span>
+          <h1 className="disp h1 c-navy" style={{ fontSize: "clamp(34px, 5vw, 52px)" }}>
+            {title}
+          </h1>
+          {subtitle && (
+            <p className="body-lg c-navy-60" style={{ marginTop: 18, maxWidth: 520 }}>
+              {subtitle}
+            </p>
+          )}
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
 function MediaPanel({
   tone = "navy",
   style,
@@ -230,9 +290,7 @@ function MediaPanel({
   const handleMouseEnter = () => {
     if (preview && videoRef.current) {
       videoRef.current.currentTime = 0;
-      videoRef.current.play().catch((error) => {
-        console.log("Hover video could not play:", error);
-      });
+      videoRef.current.play().catch(() => {});
     }
   };
 
@@ -245,12 +303,8 @@ function MediaPanel({
 
   return (
     <div
-      className={`media-panel ${className}`}
-      style={{
-        ...style,
-        position: "relative",
-        overflow: "hidden",
-      }}
+      className={`media-panel ${className} ${preview && video ? "portfolio-video" : ""}`}
+      style={{ ...style, position: "relative", overflow: "hidden" }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -273,18 +327,22 @@ function MediaPanel({
           }}
         />
       ) : (
-        <div
-          className={`media-inner ${toneClass}`}
-          style={{
-            position: "absolute",
-            inset: 0,
-          }}
-        />
+        <div className={`media-inner ${toneClass}`} style={{ position: "absolute", inset: 0 }} />
       )}
     </div>
   );
 }
 
+/* Scrolls to the top on every route change. Without this, navigating
+   from a scrolled-down position on one page leaves you scrolled down
+   on the next page too. */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Nav                                                                 */
@@ -293,57 +351,56 @@ function MediaPanel({
 function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState("");
 
   const links = [
-    { label: "Work", href: "#work", id: "work" },
-    { label: "Services", href: "#services", id: "services" },
-    { label: "About", href: "#about", id: "about" },
-    { label: "Process", href: "#process", id: "process" },
-    { label: "Contact", href: "#contact", id: "contact" },
+    { label: "Work", href: "/work" },
+    { label: "Services", href: "/services" },
+    { label: "About", href: "/about" },
+    { label: "Process", href: "/process" },
+    { label: "Contact", href: "/contact" },
   ];
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", onScroll);
-
-    const observer = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && setActiveSection(e.target.id)),
-      { rootMargin: "-45% 0px -45% 0px" }
-    );
-    links.forEach((l) => {
-      const el = document.getElementById(l.id);
-      if (el) observer.observe(el);
-    });
-
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      observer.disconnect();
-    };
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const textColor = scrolled ? "var(--navy)" : "#fff";
+  const textColor = "var(--navy)";
 
   return (
-    <header className={`nav${scrolled ? " scrolled" : ""}`}>
+    <header className={`nav always-visible${scrolled ? " scrolled" : ""}`}>
       <div className="container flex items-center justify-between" style={{ padding: "20px 24px" }}>
-        <a href="#top" className="nav-logo disp flex items-center" style={{ color: textColor }}>
+        <Link to="/" className="nav-logo disp flex items-center" style={{ color: textColor }}>
           ALVARA
-          <span className="nav-sub" style={{ color: textColor }}>Cinematic Property Films</span>
-        </a>
+          <span className="nav-sub">Cinematic Property Films</span>
+        </Link>
 
-        <nav className="flex items-center" style={{ gap: 36, display: "none" }} id="desktop-nav">
-          {links.map((l) => (
-            <a key={l.label} href={l.href} className={`nav-link${activeSection === l.id ? " active" : ""}`} style={{ color: textColor }}>
-              {l.label}
-            </a>
-          ))}
-          <a href="#contact" className={`btn ${scrolled ? "btn-navy" : "btn-line-white"}`} style={{ padding: "10px 22px" }}>
+        <nav className="flex items-center" style={{ gap: 36 }} id="desktop-nav">
+          <div style={{ display: "flex", gap: 22, alignItems: "center" }}>
+            {links.map((l) => (
+              <NavLink
+                key={l.label}
+                to={l.href}
+                className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
+                style={{ color: textColor }}
+              >
+                {l.label}
+              </NavLink>
+            ))}
+          </div>
+
+          <Link to="/contact" className="btn btn-navy" style={{ padding: "10px 22px" }}>
             Start a Project
-          </a>
+          </Link>
         </nav>
 
-        <button onClick={() => setOpen(!open)} className="caption" style={{ background: "none", border: "none", color: textColor, cursor: "pointer" }} aria-label="Toggle menu">
+        <button
+          onClick={() => setOpen(!open)}
+          className="caption"
+          style={{ background: "none", border: "none", color: textColor, cursor: "pointer" }}
+          aria-label="Toggle menu"
+        >
           {open ? "Close" : "Menu"}
         </button>
       </div>
@@ -352,16 +409,80 @@ function Nav() {
 
       <AnimatePresence>
         {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="bg-white mobile-menu" style={{ overflow: "hidden" }}>
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-white mobile-menu"
+            style={{ overflow: "hidden" }}
+          >
             <div className="flex flex-col container" style={{ gap: 20, paddingBottom: 32, paddingTop: 8 }}>
               {links.map((l) => (
-                <a key={l.label} href={l.href} onClick={() => setOpen(false)}>{l.label}</a>
+                <Link key={l.label} to={l.href} onClick={() => setOpen(false)} style={{ textDecoration: "none" }}>
+                  {l.label}
+                </Link>
               ))}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </header>
+  );
+}
+
+/* Thin square-bracket "viewfinder" cursor that appears over portfolio
+   footage — ties into the camera-philosophy brand idea instead of
+   being a random flourish. Uses event delegation on document so it
+   keeps working after route changes remount the portfolio cards,
+   rather than querying .portfolio-video once on mount. */
+function ViewfinderCursor() {
+  const [visible, setVisible] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e) => setPosition({ x: e.clientX, y: e.clientY });
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
+
+  useEffect(() => {
+    const handleOver = (e) => {
+      if (e.target.closest && e.target.closest(".portfolio-video")) setVisible(true);
+    };
+    const handleOut = (e) => {
+      if (e.target.closest && e.target.closest(".portfolio-video")) setVisible(false);
+    };
+    document.addEventListener("mouseover", handleOver);
+    document.addEventListener("mouseout", handleOut);
+    return () => {
+      document.removeEventListener("mouseover", handleOver);
+      document.removeEventListener("mouseout", handleOut);
+    };
+  }, []);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        left: position.x,
+        top: position.y,
+        width: 42,
+        height: 42,
+        transform: "translate(-50%, -50%)",
+        pointerEvents: "none",
+        zIndex: 9999,
+        opacity: visible ? 1 : 0,
+        transition: "opacity .2s ease",
+      }}
+    >
+      <div style={{ position: "absolute", inset: 0 }}>
+        <span style={{ position: "absolute", left: 0, top: 0, width: 10, height: 10, borderLeft: "1px solid white", borderTop: "1px solid white" }} />
+        <span style={{ position: "absolute", right: 0, top: 0, width: 10, height: 10, borderRight: "1px solid white", borderTop: "1px solid white" }} />
+        <span style={{ position: "absolute", left: 0, bottom: 0, width: 10, height: 10, borderLeft: "1px solid white", borderBottom: "1px solid white" }} />
+        <span style={{ position: "absolute", right: 0, bottom: 0, width: 10, height: 10, borderRight: "1px solid white", borderBottom: "1px solid white" }} />
+      </div>
+      <div style={{ position: "absolute", left: "50%", top: "50%", width: 3, height: 3, transform: "translate(-50%, -50%)", background: "#fff", borderRadius: "50%" }} />
+    </div>
   );
 }
 
@@ -376,7 +497,8 @@ function Hero() {
   const scale = useTransform(scrollYProgress, [0, 1], [1, 1.08]);
   const opacity = useTransform(scrollYProgress, [0, 0.75], [1, 0]);
 
-  // Adjust these two numbers (in seconds) until the caption is skipped
+  // Adjust these two numbers (in seconds) until any intro caption baked
+  // into the source clip is fully skipped.
   const START_TIME = 3;
   const END_TIME = 13;
 
@@ -403,7 +525,7 @@ function Hero() {
   }, []);
 
   return (
-    <section ref={ref} id="top" className="bg-navy rel" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+    <section ref={ref} className="bg-navy rel" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
       <motion.div style={{ position: "absolute", inset: 0, scale }} aria-hidden="true">
         <video
           ref={videoRef}
@@ -412,22 +534,13 @@ function Hero() {
           muted
           playsInline
           preload="auto"
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: "right bottom",
-            display: "block",
-          }}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "right bottom", display: "block" }}
         />
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background:
-              "linear-gradient(180deg, rgba(8,25,37,.55) 0%, rgba(8,25,37,.25) 35%, rgba(8,25,37,.55) 100%)",
+            background: "linear-gradient(180deg, rgba(8,25,37,.55) 0%, rgba(8,25,37,.25) 35%, rgba(8,25,37,.55) 100%)",
           }}
         />
       </motion.div>
@@ -451,8 +564,8 @@ function Hero() {
           Cinematic property films that turn architecture, atmosphere and movement into an experience people can feel before they arrive.
         </motion.p>
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.42 }} className="flex flex-wrap items-center justify-center" style={{ gap: 14, marginTop: 38 }}>
-          <a href="#work" className="btn btn-line-white">View Our Work</a>
-          <a href="#contact" className="btn btn-navy" style={{ background: "#fff", color: "var(--navy)" }}>Start a Project</a>
+          <Link to="/work" className="btn btn-line-white">View Our Work</Link>
+          <Link to="/contact" className="btn btn-navy" style={{ background: "#fff", color: "var(--navy)" }}>Start a Project</Link>
         </motion.div>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1, delay: 0.9 }} style={{ marginTop: 90, color: "rgba(255,255,255,.38)", fontSize: 10, letterSpacing: ".22em", textTransform: "uppercase" }}>
           Architecture · Atmosphere · Movement
@@ -461,6 +574,7 @@ function Hero() {
     </section>
   );
 }
+
 /* ------------------------------------------------------------------ */
 /*  Introduction                                                       */
 /* ------------------------------------------------------------------ */
@@ -486,11 +600,65 @@ function Introduction() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Visual Statement                                                    */
+/*  Visual Statement — the one "big swing" full-bleed moment            */
 /* ------------------------------------------------------------------ */
 
 function VisualStatement() {
- 
+  const videoRef = useRef(null);
+  const START_TIME = 4;
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleLoaded = () => {
+      video.currentTime = START_TIME;
+      video.play().catch(() => {});
+    };
+    const handleTimeUpdate = () => {
+      // loop back to START_TIME instead of 0
+      if (video.duration && video.currentTime >= video.duration - 0.15) {
+        video.currentTime = START_TIME;
+      }
+    };
+
+    video.addEventListener("loadedmetadata", handleLoaded);
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    return () => {
+      video.removeEventListener("loadedmetadata", handleLoaded);
+      video.removeEventListener("timeupdate", handleTimeUpdate);
+    };
+  }, []);
+
+  return (
+    <section className="bg-navy" style={{ padding: "0" }}>
+      <div className="rel" style={{ height: "78vh", minHeight: 460, overflow: "hidden" }}>
+        <video
+          ref={videoRef}
+          src="/apartment.mp4"
+          autoPlay
+          muted
+          playsInline
+          preload="auto"
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(180deg, rgba(8,25,37,.35) 0%, rgba(8,25,37,.15) 40%, rgba(8,25,37,.55) 100%)",
+          }}
+        />
+        <Reveal className="rel" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <h2 className="disp c-white text-center" style={{ fontSize: "clamp(32px, 6vw, 58px)", fontWeight: 400, lineHeight: 1.15 }}>
+            Space. Light.
+            <br />
+            Movement.
+          </h2>
+        </Reveal>
+      </div>
+    </section>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -506,14 +674,16 @@ const services = [
   { title: "Property Launch Films", desc: "Hero films and visual campaigns for new developments, hospitality launches and property releases." },
 ];
 
-function Services() {
+function Services({ showHeading = true }) {
   return (
     <section id="services" className="section bg-white">
       <div className="container">
-        <Reveal style={{ maxWidth: 520, marginBottom: 64 }}>
-          <span className="eyebrow">What We Create</span>
-          <h2 className="disp h2 c-navy">Film work built around how a space actually feels.</h2>
-        </Reveal>
+        {showHeading && (
+          <Reveal style={{ maxWidth: 520, marginBottom: 64 }}>
+            <span className="eyebrow">What We Create</span>
+            <h2 className="disp h2 c-navy">Film work built around how a space actually feels.</h2>
+          </Reveal>
+        )}
         <div className="grid g3" style={{ background: "rgba(16,42,67,.08)" }}>
           {services.map((s, i) => (
             <Reveal key={s.title} delay={(i % 3) * 0.06} className="service-cell" style={{ padding: 40 }}>
@@ -533,7 +703,7 @@ function Services() {
 /* ------------------------------------------------------------------ */
 
 const clients = [
-  { icon: Home, title: "Luxury Villas" },
+  { icon: HomeIcon, title: "Luxury Villas" },
   { icon: Hotel, title: "Boutique Hotels" },
   { icon: MapPin, title: "Vacation Rentals" },
   { icon: Building2, title: "Luxury Apartments & Penthouses" },
@@ -573,13 +743,12 @@ function WhoWeWorkWith() {
 /* ------------------------------------------------------------------ */
 
 const portfolioItems = [
- {
+  {
     title: "Villa Levante",
     location: "Bali, Indonesia",
     type: "Cinematic Villa Film",
     video: "/villa.mp4",
-    approach:
-      "A cinematic walkthrough following the villa's natural flow, revealing the architecture, atmosphere and relationship between each space.",
+    approach: "A cinematic walkthrough following the villa's natural flow, revealing the architecture, atmosphere and relationship between each space.",
     deliverables: "Primary hero film, website film and social edit.",
   },
   {
@@ -587,42 +756,50 @@ const portfolioItems = [
     location: "Kuta Utara, Bali, Indonesia",
     type: "Residential Property Film",
     video: "/apartment.mp4",
-    approach:
-      "A cinematic residential film focused on the apartment's layout, natural light and the experience of moving through the space.",
+    approach: "A cinematic residential film focused on the apartment's layout, natural light and the experience of moving through the space.",
     deliverables: "Property walkthrough film and social ready edit.",
   },
 ];
 
-function Portfolio() {
+function Portfolio({ showHeading = true }) {
   const [active, setActive] = useState(null);
 
   return (
     <section id="work" className="section bg-white">
       <div className="container">
+        {showHeading && (
+          <Reveal style={{ maxWidth: 560, marginBottom: 64 }}>
+            <span className="eyebrow">Selected Work</span>
 
-        <Reveal style={{ maxWidth: 560, marginBottom: 64 }}>
-          <span className="eyebrow">Selected Work</span>
+            <h2
+              className="disp h2"
+              style={{ color: "#102A43" }}
+            >
+              A selection of spaces, captured in motion.
+            </h2>
 
-          <h2 className="disp h2 c-navy">
-            A selection of spaces, captured in motion.
-          </h2>
-
-          <p className="body-lg c-navy-60" style={{ marginTop: 18 }}>
-            Selected work from our current property film portfolio.
-          </p>
-        </Reveal>
+            <p
+              className="body-lg"
+              style={{
+                marginTop: 18,
+                color: "rgba(16,42,67,.62)",
+              }}
+            >
+              Selected work from our current property film portfolio.
+            </p>
+          </Reveal>
+        )}
 
         <div
-        className="portfolio-grid"
-  style={{
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 32,
-    maxWidth: 1000,
-    margin: "0 auto",
-  }}
->
-
+          className="portfolio-grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gap: 32,
+            maxWidth: 1000,
+            margin: "0 auto",
+          }}
+        >
           {portfolioItems.map((item, i) => (
             <Reveal
               key={item.title}
@@ -631,20 +808,21 @@ function Portfolio() {
             >
               <button
                 onClick={() => setActive(item)}
-                className="edge card-hover bg-white"
                 style={{
                   width: "100%",
                   textAlign: "left",
                   padding: 0,
                   border: "1px solid rgba(16,42,67,.1)",
                   background: "#fff",
+                  color: "#102A43",
                   cursor: "pointer",
                   display: "block",
                   borderRadius: 4,
-  overflow: "hidden",
+                  overflow: "hidden",
+                  fontFamily: "'Inter', sans-serif",
+                  appearance: "none",
                 }}
               >
-
                 <MediaPanel
                   tone={item.tone}
                   video={item.video}
@@ -656,55 +834,72 @@ function Portfolio() {
                   }}
                 />
 
-                <div style={{ padding: "28px 30px 30px" }}>
-
+                <div
+                  style={{
+                    padding: "28px 30px 30px",
+                    background: "#fff",
+                    color: "#102A43",
+                  }}
+                >
                   <h3
                     className="disp"
                     style={{
                       fontSize: 20,
                       fontWeight: 400,
+                      color: "#102A43",
+                      margin: 0,
                     }}
                   >
                     {item.title}
                   </h3>
 
                   <p
-                    className="caption c-slate"
-                    style={{ marginTop: 8 }}
+                    style={{
+                      marginTop: 8,
+                      color: "#486581",
+                      fontSize: 11,
+                      letterSpacing: ".18em",
+                      textTransform: "uppercase",
+                    }}
                   >
                     {item.location}
                   </p>
 
                   <p
-                    className="body c-navy-60"
-                    style={{ marginTop: 6 }}
+                    style={{
+                      marginTop: 6,
+                      color: "rgba(16,42,67,.62)",
+                      fontSize: 14.5,
+                      fontWeight: 300,
+                      lineHeight: 1.7,
+                    }}
                   >
                     {item.type}
                   </p>
 
                   <span
-                    className="caption c-navy flex items-center"
                     style={{
+                      display: "flex",
+                      alignItems: "center",
                       gap: 8,
                       marginTop: 22,
+                      color: "#102A43",
+                      fontSize: 11,
+                      letterSpacing: ".18em",
+                      textTransform: "uppercase",
                       fontWeight: 500,
                     }}
                   >
-                    View Project
-                    <ArrowRight size={13} />
+                    View Project <ArrowRight size={13} />
                   </span>
-
                 </div>
-
               </button>
             </Reveal>
           ))}
-
         </div>
       </div>
 
       <AnimatePresence>
-
         {active && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -722,7 +917,6 @@ function Portfolio() {
               padding: 16,
             }}
           >
-
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
@@ -732,27 +926,33 @@ function Portfolio() {
                 ease: [0.16, 1, 0.3, 1],
               }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white"
               style={{
                 maxHeight: "90vh",
                 width: "100%",
                 maxWidth: 900,
                 overflowY: "auto",
+                background: "#fff",
+                color: "#102A43",
               }}
             >
-
               <MediaPanel
-  tone={active.tone}
-  video={active.video}
-  preview={false}
-  style={{ height: 460, width: "100%" }}
-/>
-              
+                tone={active.tone}
+                video={active.video}
+                preview={false}
+                style={{
+                  height: 460,
+                  width: "100%",
+                }}
+              />
 
-              <div style={{ padding: "28px 30px 30px" }}>
-
+              <div
+                style={{
+                  padding: "28px 30px 30px",
+                  background: "#fff",
+                  color: "#102A43",
+                }}
+              >
                 <div className="flex items-center justify-between">
-
                   <div>
                     <h3
                       className="disp"
@@ -760,14 +960,21 @@ function Portfolio() {
                         fontSize: 22,
                         fontWeight: 400,
                         letterSpacing: "-0.02em",
+                        color: "#102A43",
+                        margin: 0,
                       }}
                     >
                       {active.title}
                     </h3>
 
                     <p
-                      className="caption c-slate"
-                      style={{marginTop: 10, opacity: 0.8  }}
+                      style={{
+                        marginTop: 10,
+                        color: "#486581",
+                        fontSize: 11,
+                        letterSpacing: ".18em",
+                        textTransform: "uppercase",
+                      }}
                     >
                       {active.location} · {active.type}
                     </p>
@@ -785,7 +992,6 @@ function Portfolio() {
                   >
                     <X size={20} />
                   </button>
-
                 </div>
 
                 <div
@@ -795,116 +1001,110 @@ function Portfolio() {
                     marginTop: 30,
                   }}
                 >
-
                   <div>
-                    <span className="caption c-slate">
+                    <span
+                      style={{
+                        color: "#486581",
+                        fontSize: 11,
+                        letterSpacing: ".18em",
+                        textTransform: "uppercase",
+                      }}
+                    >
                       Creative Approach
                     </span>
 
                     <p
-                      className="body c-navy-60"
-                      style={{ marginTop: 8 }}
+                      style={{
+                        marginTop: 8,
+                        color: "rgba(16,42,67,.62)",
+                        fontSize: 14.5,
+                        fontWeight: 300,
+                        lineHeight: 1.7,
+                      }}
                     >
                       {active.approach}
                     </p>
                   </div>
 
                   <div>
-                    <span className="caption c-slate">
+                    <span
+                      style={{
+                        color: "#486581",
+                        fontSize: 11,
+                        letterSpacing: ".18em",
+                        textTransform: "uppercase",
+                      }}
+                    >
                       Deliverables
                     </span>
 
                     <p
-                      className="body c-navy-60"
-                      style={{ marginTop: 8 }}
+                      style={{
+                        marginTop: 8,
+                        color: "rgba(16,42,67,.62)",
+                        fontSize: 14.5,
+                        fontWeight: 300,
+                        lineHeight: 1.7,
+                      }}
                     >
                       {active.deliverables}
                     </p>
                   </div>
-
                 </div>
-
               </div>
-
             </motion.div>
-
           </motion.div>
         )}
-
       </AnimatePresence>
     </section>
   );
 }
+
 /* ------------------------------------------------------------------ */
 /*  Case Study                                                          */
 /* ------------------------------------------------------------------ */
 
 function CaseStudy() {
+  const videoRef = useRef(null);
+  const START_TIME = 2;
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleLoaded = () => {
+      video.currentTime = START_TIME;
+      video.play().catch(() => {});
+    };
+    const handleTimeUpdate = () => {
+      if (video.duration && video.currentTime >= video.duration - 0.15) {
+        video.currentTime = START_TIME;
+      }
+    };
+
+    video.addEventListener("loadedmetadata", handleLoaded);
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    return () => {
+      video.removeEventListener("loadedmetadata", handleLoaded);
+      video.removeEventListener("timeupdate", handleTimeUpdate);
+    };
+  }, []);
+
   return (
     <section className="section bg-pale">
       <div className="container">
-        <div
-          className="case-study-layout"
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "1fr 1.15fr",
-            gap: 70,
-            alignItems: "center",
-          }}
-        >
+        <div className="case-study-layout" style={{ maxWidth: 1180, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1.15fr", gap: 70, alignItems: "center" }}>
           <Reveal>
             <span className="eyebrow">Designed Around Experience</span>
-
-            <h2
-              className="disp h2 c-navy"
-              style={{
-                marginTop: 10,
-                maxWidth: 520,
-              }}
-            >
-              Designed around the way people experience a space.
-            </h2>
-
-            <p
-              className="body-lg c-navy-60"
-              style={{
-                marginTop: 22,
-                maxWidth: 500,
-              }}
-            >
-              A good property film should not simply move from room to room.
-              It should create a sense of arrival. It should reveal the property
-              naturally, show the relationships between spaces, and communicate
-              atmosphere rather than simply document what is there.
+            <h2 className="disp h2 c-navy" style={{ marginTop: 10, maxWidth: 520 }}>Designed around the way people experience a space.</h2>
+            <p className="body-lg c-navy-60" style={{ marginTop: 22, maxWidth: 500 }}>
+              A good property film should not simply move from room to room. It should create a
+              sense of arrival. It should reveal the property naturally, show the relationships
+              between spaces, and communicate atmosphere rather than simply document what is there.
             </p>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
-                gap: 12,
-                marginTop: 32,
-                maxWidth: 440,
-              }}
-            >
-              {[
-                "Natural movement",
-                "Spatial continuity",
-                "Architectural accuracy",
-                "Atmosphere first",
-              ].map((item) => (
-                <div
-                  key={item}
-                  style={{
-                    borderTop: "1px solid rgba(16,42,67,.15)",
-                    paddingTop: 12,
-                    fontSize: 12,
-                    color: "rgba(16,42,67,.7)",
-                    letterSpacing: ".02em",
-                  }}
-                >
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginTop: 32, maxWidth: 440 }}>
+              {["Natural movement", "Spatial continuity", "Architectural accuracy", "Atmosphere first"].map((item) => (
+                <div key={item} style={{ borderTop: "1px solid rgba(16,42,67,.15)", paddingTop: 12, fontSize: 12, color: "rgba(16,42,67,.7)", letterSpacing: ".02em" }}>
                   {item}
                 </div>
               ))}
@@ -912,61 +1112,19 @@ function CaseStudy() {
           </Reveal>
 
           <Reveal delay={0.15}>
-            <div
-              className="media-panel"
-              style={{
-                width: "100%",
-                aspectRatio: "16 / 10",
-                background: "#102A43",
-                position: "relative",
-                overflow: "hidden",
-              }}
-            >
+            <div className="media-panel" style={{ width: "100%", aspectRatio: "16 / 10", background: "#102A43", position: "relative", overflow: "hidden" }}>
               <video
+                ref={videoRef}
                 src="/Villa2.mp4"
                 muted
                 playsInline
                 autoPlay
-                loop
                 preload="auto"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  objectPosition: "75% center",
-                  display: "block",
-                }}
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "75% center", display: "block" }}
               />
-
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background:
-                    "linear-gradient(180deg, rgba(11,30,48,.05) 35%, rgba(11,30,48,.45) 100%)",
-                  pointerEvents: "none",
-                }}
-              />
-
-              <div
-                style={{
-                  position: "absolute",
-                  left: 19,
-                  bottom: 22,
-                  color: "#fff",
-                  pointerEvents: "none",
-                }}
-              >
-                <span
-                  className="caption"
-                  style={{
-                    fontSize: 9,
-                    letterSpacing: ".2em",
-                    color: "rgba(255,255,255,.72)",
-                  }}
-                >
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(11,30,48,.05) 35%, rgba(11,30,48,.45) 100%)", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", left: 19, bottom: 22, color: "#fff", pointerEvents: "none" }}>
+                <span className="caption" style={{ fontSize: 9, letterSpacing: ".2em", color: "rgba(255,255,255,.72)" }}>
                   The experience comes first
                 </span>
               </div>
@@ -977,91 +1135,36 @@ function CaseStudy() {
 
       <style>{`
         @media(max-width:767px){
-          .case-study-layout{
-            grid-template-columns:1fr !important;
-            gap:40px !important;
-          }
+          .case-study-layout{ grid-template-columns:1fr !important; gap:40px !important; }
         }
       `}</style>
     </section>
   );
 }
+
 const approachPoints = ["Natural camera movement", "Spatial continuity", "Architectural accuracy", "Realistic perspective", "Atmosphere", "Light", "Composition", "Storytelling"];
 
 function Approach() {
   return (
     <section className="section bg-white">
       <div className="container">
-        <div
-          className="approach-layout"
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "0.85fr 1.15fr",
-            gap: 80,
-            alignItems: "center",
-          }}
-        >
+        <div className="approach-layout" style={{ maxWidth: 1180, margin: "0 auto", display: "grid", gridTemplateColumns: "0.85fr 1.15fr", gap: 80, alignItems: "center" }}>
           <Reveal>
             <span className="eyebrow">Our Approach</span>
-
-            <h2 className="disp h2 c-navy" style={{ marginTop: 10 }}>
-              Every space has a rhythm.
-            </h2>
-
-            <p
-              className="body-lg c-navy-60"
-              style={{
-                marginTop: 22,
-                maxWidth: 460,
-              }}
-            >
-              We don't treat a property as a collection of separate rooms.
-              We build each film around the way the space naturally unfolds
-              from arrival to atmosphere, from architecture to detail.
+            <h2 className="disp h2 c-navy" style={{ marginTop: 10 }}>Every space has a rhythm.</h2>
+            <p className="body-lg c-navy-60" style={{ marginTop: 22, maxWidth: 460 }}>
+              We don't treat a property as a collection of separate rooms. We build each film
+              around the way the space naturally unfolds from arrival to atmosphere, from
+              architecture to detail.
             </p>
           </Reveal>
 
           <Reveal delay={0.15}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
-                borderTop: "1px solid rgba(16,42,67,.12)",
-                borderLeft: "1px solid rgba(16,42,67,.12)",
-              }}
-            >
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", borderTop: "1px solid rgba(16,42,67,.12)", borderLeft: "1px solid rgba(16,42,67,.12)" }}>
               {approachPoints.map((p, i) => (
-                <div
-                  key={p}
-                  style={{
-                    minHeight: 105,
-                    padding: "24px 22px",
-                    borderRight: "1px solid rgba(16,42,67,.12)",
-                    borderBottom: "1px solid rgba(16,42,67,.12)",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <span
-                    className="caption c-slate"
-                    style={{ fontSize: 9 }}
-                  >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-
-                  <span
-                    className="disp c-navy"
-                    style={{
-                      fontSize: 16,
-                      fontWeight: 400,
-                      marginTop: 18,
-                    }}
-                  >
-                    {p}
-                  </span>
+                <div key={p} style={{ minHeight: 105, padding: "24px 22px", borderRight: "1px solid rgba(16,42,67,.12)", borderBottom: "1px solid rgba(16,42,67,.12)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                  <span className="caption c-slate" style={{ fontSize: 9 }}>{String(i + 1).padStart(2, "0")}</span>
+                  <span className="disp c-navy" style={{ fontSize: 16, fontWeight: 400, marginTop: 18 }}>{p}</span>
                 </div>
               ))}
             </div>
@@ -1071,10 +1174,7 @@ function Approach() {
 
       <style>{`
         @media(max-width:767px){
-          .approach-layout{
-            grid-template-columns:1fr !important;
-            gap:40px !important;
-          }
+          .approach-layout{ grid-template-columns:1fr !important; gap:40px !important; }
         }
       `}</style>
     </section>
@@ -1091,85 +1191,23 @@ function CameraPhilosophy() {
   return (
     <section className="section bg-navy">
       <div className="container">
-        <div
-          className="camera-philosophy-layout"
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 90,
-            alignItems: "center",
-          }}
-        >
+        <div className="camera-philosophy-layout" style={{ maxWidth: 1180, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 90, alignItems: "center" }}>
           <Reveal>
-            <span
-              className="eyebrow"
-              style={{ color: "rgba(217,234,247,.7)" }}
-            >
-              Camera Philosophy
-            </span>
-
-            <h2 className="disp h2 c-white">
-              Movement should feel natural.
-            </h2>
-
-            <p
-              className="body-lg c-white-70"
-              style={{
-                marginTop: 22,
-                maxWidth: 520,
-              }}
-            >
-              Our walkthroughs are designed around smooth, stabilized camera
-              movement that follows the natural logic of a space. The camera
-              should feel like a person moving through the property, not a
-              virtual camera jumping between rooms.
+            <span className="eyebrow" style={{ color: "rgba(217,234,247,.7)" }}>Camera Philosophy</span>
+            <h2 className="disp h2 c-white">Movement should feel natural.</h2>
+            <p className="body-lg c-white-70" style={{ marginTop: 22, maxWidth: 520 }}>
+              Our walkthroughs are designed around smooth, stabilized camera movement that follows
+              the natural logic of a space. The camera should feel like a person moving through the
+              property, not a virtual camera jumping between rooms.
             </p>
           </Reveal>
 
           <Reveal delay={0.15}>
-            <div
-              style={{
-                borderTop: "1px solid rgba(255,255,255,.18)",
-                borderBottom: "1px solid rgba(255,255,255,.18)",
-              }}
-            >
+            <div style={{ borderTop: "1px solid rgba(255,255,255,.18)", borderBottom: "1px solid rgba(255,255,255,.18)" }}>
               {cameraPrinciples.map((p, i) => (
-                <div
-                  key={p}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "18px 0",
-                    borderBottom:
-                      i === cameraPrinciples.length - 1
-                        ? "none"
-                        : "1px solid rgba(255,255,255,.1)",
-                  }}
-                >
-                  <span
-                    className="caption"
-                    style={{
-                      color: "rgba(255,255,255,.42)",
-                      fontSize: 9,
-                      letterSpacing: ".18em",
-                    }}
-                  >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-
-                  <span
-                    className="disp"
-                    style={{
-                      color: "rgba(255,255,255,.9)",
-                      fontSize: 17,
-                      fontWeight: 400,
-                    }}
-                  >
-                    {p}
-                  </span>
+                <div key={p} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 0", borderBottom: i === cameraPrinciples.length - 1 ? "none" : "1px solid rgba(255,255,255,.1)" }}>
+                  <span className="caption" style={{ color: "rgba(255,255,255,.42)", fontSize: 9, letterSpacing: ".18em" }}>{String(i + 1).padStart(2, "0")}</span>
+                  <span className="disp" style={{ color: "rgba(255,255,255,.9)", fontSize: 17, fontWeight: 400 }}>{p}</span>
                 </div>
               ))}
             </div>
@@ -1179,15 +1217,13 @@ function CameraPhilosophy() {
 
       <style>{`
         @media(max-width:767px){
-          .camera-philosophy-layout{
-            grid-template-columns:1fr !important;
-            gap:50px !important;
-          }
+          .camera-philosophy-layout{ grid-template-columns:1fr !important; gap:50px !important; }
         }
       `}</style>
     </section>
   );
 }
+
 /* ------------------------------------------------------------------ */
 /*  Process                                                             */
 /* ------------------------------------------------------------------ */
@@ -1199,88 +1235,32 @@ const processSteps = [
   { n: "04", title: "Delivery", desc: "Final videos are delivered in formats suited for websites, listings, social media and marketing campaigns." },
 ];
 
-function Process() {
+function Process({ showHeading = true }) {
   return (
     <section id="process" className="section bg-cloud">
       <div className="container">
-        <Reveal style={{ maxWidth: 600, marginBottom: 72 }}>
-          <span className="eyebrow">Process</span>
+        {showHeading && (
+          <Reveal style={{ maxWidth: 600, marginBottom: 72 }}>
+            <span className="eyebrow">Process</span>
+            <h2 className="disp h2 c-navy">From still images to cinematic stories.</h2>
+            <p className="body-lg c-navy-60" style={{ marginTop: 18, maxWidth: 520 }}>
+              Every project begins with understanding the space and ends with a film built for
+              where your audience will experience it.
+            </p>
+          </Reveal>
+        )}
 
-          <h2 className="disp h2 c-navy">
-            From still images to cinematic stories.
-          </h2>
-
-          <p
-            className="body-lg c-navy-60"
-            style={{
-              marginTop: 18,
-              maxWidth: 520,
-            }}
-          >
-            Every project begins with understanding the space and ends with a
-            film built for where your audience will experience it.
-          </p>
-        </Reveal>
-
-        <div
-          className="process-grid"
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 1,
-            background: "rgba(16,42,67,.1)",
-          }}
-        >
+        <div className="process-grid" style={{ maxWidth: 1180, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "rgba(16,42,67,.1)" }}>
           {processSteps.map((s, i) => (
             <Reveal key={s.n} delay={i * 0.1}>
-              <div
-                style={{
-                  minHeight: 300,
-                  padding: "30px 28px",
-                  background: "var(--cloud)",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
+              <div style={{ minHeight: 300, padding: "30px 28px", background: "var(--cloud)", display: "flex", flexDirection: "column" }}>
                 <div className="flex items-center justify-between">
-                  <span
-                    className="disp c-slate"
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 400,
-                    }}
-                  >
-                    {s.n}
-                  </span>
-
-                  <ArrowRight
-                    size={15}
-                    strokeWidth={1.2}
-                    className="icon-slate"
-                    style={{
-                      transform: i === processSteps.length - 1
-                        ? "rotate(90deg)"
-                        : "none",
-                      opacity: 0.55,
-                    }}
-                  />
+                  <span className="disp c-slate" style={{ fontSize: 15, fontWeight: 400 }}>{s.n}</span>
+                  <ArrowRight size={15} strokeWidth={1.2} className="icon-slate" style={{ transform: i === processSteps.length - 1 ? "rotate(90deg)" : "none", opacity: 0.55 }} />
                 </div>
-
                 <div style={{ marginTop: "auto" }}>
-                  <h3
-                    className="disp h3 c-navy"
-                    style={{
-                      marginBottom: 12,
-                    }}
-                  >
-                    {s.title}
-                  </h3>
-
-                  <p className="body c-navy-60">
-                    {s.desc}
-                  </p>
+                  <h3 className="disp h3 c-navy" style={{ marginBottom: 12 }}>{s.title}</h3>
+                  <p className="body c-navy-60">{s.desc}</p>
                 </div>
               </div>
             </Reveal>
@@ -1289,17 +1269,8 @@ function Process() {
       </div>
 
       <style>{`
-        @media(max-width:900px){
-          .process-grid{
-            grid-template-columns:repeat(2, 1fr) !important;
-          }
-        }
-
-        @media(max-width:600px){
-          .process-grid{
-            grid-template-columns:1fr !important;
-          }
-        }
+        @media(max-width:900px){ .process-grid{ grid-template-columns:repeat(2, 1fr) !important; } }
+        @media(max-width:600px){ .process-grid{ grid-template-columns:1fr !important; } }
       `}</style>
     </section>
   );
@@ -1324,76 +1295,20 @@ function WhatWeCareAbout() {
       <div className="container">
         <Reveal style={{ maxWidth: 600, marginBottom: 64 }}>
           <span className="eyebrow">What We Care About</span>
-
-          <h2 className="disp h2 c-navy">
-            What we care about.
-          </h2>
-
-          <p
-            className="body-lg c-navy-60"
-            style={{
-              marginTop: 18,
-              maxWidth: 520,
-            }}
-          >
-            The details that make a property feel like a place rather than
-            simply a collection of images.
+          <h2 className="disp h2 c-navy">What we care about.</h2>
+          <p className="body-lg c-navy-60" style={{ marginTop: 18, maxWidth: 520 }}>
+            The details that make a property feel like a place rather than simply a collection of images.
           </p>
         </Reveal>
 
-        <div
-          className="care-grid"
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 1,
-            background: "rgba(16,42,67,.1)",
-          }}
-        >
+        <div className="care-grid" style={{ maxWidth: 1180, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "rgba(16,42,67,.1)" }}>
           {careAbout.map((c, i) => (
             <Reveal key={c.title} delay={i * 0.06}>
-              <div
-                style={{
-                  minHeight: 210,
-                  padding: "30px 28px",
-                  background: "#fff",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span
-                  className="caption c-slate"
-                  style={{
-                    fontSize: 9,
-                    letterSpacing: ".18em",
-                  }}
-                >
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-
+              <div style={{ minHeight: 210, padding: "30px 28px", background: "#fff", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <span className="caption c-slate" style={{ fontSize: 9, letterSpacing: ".18em" }}>{String(i + 1).padStart(2, "0")}</span>
                 <div>
-                  <h3
-                    className="disp c-navy"
-                    style={{
-                      fontSize: 21,
-                      fontWeight: 400,
-                    }}
-                  >
-                    {c.title}
-                  </h3>
-
-                  <p
-                    className="body c-navy-60"
-                    style={{
-                      marginTop: 8,
-                      maxWidth: 280,
-                    }}
-                  >
-                    {c.desc}
-                  </p>
+                  <h3 className="disp c-navy" style={{ fontSize: 21, fontWeight: 400 }}>{c.title}</h3>
+                  <p className="body c-navy-60" style={{ marginTop: 8, maxWidth: 280 }}>{c.desc}</p>
                 </div>
               </div>
             </Reveal>
@@ -1402,17 +1317,8 @@ function WhatWeCareAbout() {
       </div>
 
       <style>{`
-        @media(max-width:900px){
-          .care-grid{
-            grid-template-columns:repeat(2, 1fr) !important;
-          }
-        }
-
-        @media(max-width:600px){
-          .care-grid{
-            grid-template-columns:1fr !important;
-          }
-        }
+        @media(max-width:900px){ .care-grid{ grid-template-columns:repeat(2, 1fr) !important; } }
+        @media(max-width:600px){ .care-grid{ grid-template-columns:1fr !important; } }
       `}</style>
     </section>
   );
@@ -1422,64 +1328,27 @@ function WhatWeCareAbout() {
 /*  About                                                               */
 /* ------------------------------------------------------------------ */
 
-function About() {
+function About({ showHeading = true }) {
   return (
     <section id="about" className="section bg-pale">
       <div className="container">
-        <div
-          className="about-layout"
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "0.75fr 1.25fr",
-            gap: 90,
-            alignItems: "center",
-          }}
-        >
+        <div className="about-layout" style={{ maxWidth: 1180, margin: "0 auto", display: "grid", gridTemplateColumns: "0.75fr 1.25fr", gap: 90, alignItems: "center" }}>
           <Reveal>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "100%",
-              }}
-            >
-              <img
-                src="/logo.png"
-                alt="ALVARA"
-                style={{
-                  width: "min(280px, 70%)",
-                  height: "auto",
-                  display: "block",
-                  objectFit: "contain",
-                }}
-              />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%" }}>
+              <img src="/logo.png" alt="ALVARA" style={{ width: "min(280px, 70%)", height: "auto", display: "block", objectFit: "contain" }} />
             </div>
           </Reveal>
 
           <Reveal delay={0.15}>
-            <h2
-              className="disp h2 c-navy"
-              style={{
-                maxWidth: 720,
-              }}
-            >
-              We create films for spaces that deserve to be experienced.
-            </h2>
-
-            <p
-              className="body-lg c-navy-60"
-              style={{
-                marginTop: 24,
-                maxWidth: 620,
-              }}
-            >
-              ALVARA is a creative studio focused on cinematic property
-              storytelling. We work at the intersection of architecture,
-              visual storytelling and modern production to create films that
-              make spaces feel tangible.
+            {showHeading && (
+              <h2 className="disp h2 c-navy" style={{ maxWidth: 720 }}>
+                We create films for spaces that deserve to be experienced.
+              </h2>
+            )}
+            <p className="body-lg c-navy-60" style={{ marginTop: showHeading ? 24 : 0, maxWidth: 620 }}>
+              ALVARA is a creative studio focused on cinematic property storytelling. We work at
+              the intersection of architecture, visual storytelling and modern production to
+              create films that make spaces feel tangible.
             </p>
           </Reveal>
         </div>
@@ -1487,14 +1356,8 @@ function About() {
 
       <style>{`
         @media(max-width:767px){
-          .about-layout{
-            grid-template-columns:1fr !important;
-            gap:40px !important;
-          }
-
-          .about-layout img{
-            width:180px !important;
-          }
+          .about-layout{ grid-template-columns:1fr !important; gap:40px !important; }
+          .about-layout img{ width:180px !important; }
         }
       `}</style>
     </section>
@@ -1509,54 +1372,20 @@ function EarlyWork() {
   return (
     <section className="section bg-white">
       <div className="container">
-        <div
-          className="early-work-layout"
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "0.8fr 1.2fr",
-            gap: 90,
-            alignItems: "center",
-          }}
-        >
+        <div className="early-work-layout" style={{ maxWidth: 1180, margin: "0 auto", display: "grid", gridTemplateColumns: "0.8fr 1.2fr", gap: 90, alignItems: "center" }}>
           <Reveal>
             <span className="eyebrow">Early Work</span>
-
-            <h2 className="disp h2 c-navy">
-              Building a body of work, one property at a time.
-            </h2>
+            <h2 className="disp h2 c-navy">Building a body of work, one property at a time.</h2>
           </Reveal>
 
           <Reveal delay={0.15}>
-            <p
-              className="body-lg c-navy-60"
-              style={{
-                maxWidth: 620,
-              }}
-            >
-              ALVARA is building its portfolio with a focus on quality,
-              consistency and long-term creative relationships. The projects
-              featured above represent the current body of work and the
-              standard we aim to bring to every space we film.
+            <p className="body-lg c-navy-60" style={{ maxWidth: 620 }}>
+              ALVARA is building its portfolio with a focus on quality, consistency and long-term
+              creative relationships. The projects featured above represent the current body of
+              work and the standard we aim to bring to every space we film.
             </p>
-
-            <div
-              style={{
-                marginTop: 30,
-                paddingTop: 20,
-                borderTop: "1px solid rgba(16,42,67,.12)",
-              }}
-            >
-              <span
-                className="caption c-slate"
-                style={{
-                  fontSize: 9,
-                  letterSpacing: ".2em",
-                }}
-              >
-                Built with intention
-              </span>
+            <div style={{ marginTop: 30, paddingTop: 20, borderTop: "1px solid rgba(16,42,67,.12)" }}>
+              <span className="caption c-slate" style={{ fontSize: 9, letterSpacing: ".2em" }}>Built with intention</span>
             </div>
           </Reveal>
         </div>
@@ -1564,10 +1393,7 @@ function EarlyWork() {
 
       <style>{`
         @media(max-width:767px){
-          .early-work-layout{
-            grid-template-columns:1fr !important;
-            gap:35px !important;
-          }
+          .early-work-layout{ grid-template-columns:1fr !important; gap:35px !important; }
         }
       `}</style>
     </section>
@@ -1594,118 +1420,35 @@ function FAQ() {
   return (
     <section className="section bg-cloud">
       <div className="container">
-        <div
-          className="faq-layout"
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "0.75fr 1.25fr",
-            gap: 90,
-            alignItems: "start",
-          }}
-        >
+        <div className="faq-layout" style={{ maxWidth: 1180, margin: "0 auto", display: "grid", gridTemplateColumns: "0.75fr 1.25fr", gap: 90, alignItems: "start" }}>
           <Reveal>
             <span className="eyebrow">FAQ</span>
-
-            <h2 className="disp h2 c-navy">
-              Questions, answered.
-            </h2>
-
-            <p
-              className="body-lg c-navy-60"
-              style={{
-                marginTop: 18,
-                maxWidth: 380,
-              }}
-            >
-              A few things clients usually want to know before starting a
-              project with ALVARA.
+            <h2 className="disp h2 c-navy">Questions, answered.</h2>
+            <p className="body-lg c-navy-60" style={{ marginTop: 18, maxWidth: 380 }}>
+              A few things clients usually want to know before starting a project with ALVARA.
             </p>
           </Reveal>
 
           <Reveal delay={0.15}>
-            <div
-              style={{
-                borderTop: "1px solid rgba(16,42,67,.14)",
-                borderBottom: "1px solid rgba(16,42,67,.14)",
-              }}
-            >
+            <div style={{ borderTop: "1px solid rgba(16,42,67,.14)", borderBottom: "1px solid rgba(16,42,67,.14)" }}>
               {faqs.map((f, i) => (
-                <div
-                  key={f.q}
-                  style={{
-                    borderBottom:
-                      i === faqs.length - 1
-                        ? "none"
-                        : "1px solid rgba(16,42,67,.1)",
-                  }}
-                >
+                <div key={f.q} style={{ borderBottom: i === faqs.length - 1 ? "none" : "1px solid rgba(16,42,67,.1)" }}>
                   <button
-                    onClick={() =>
-                      setOpenIndex(openIndex === i ? null : i)
-                    }
+                    onClick={() => setOpenIndex(openIndex === i ? null : i)}
                     className="flex items-center justify-between"
-                    style={{
-                      width: "100%",
-                      padding: "24px 0",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      gap: 20,
-                    }}
+                    style={{ width: "100%", padding: "24px 0", background: "none", border: "none", cursor: "pointer", textAlign: "left", gap: 20 }}
                     aria-expanded={openIndex === i}
                   >
-                    <span
-                      className="disp"
-                      style={{
-                        fontSize: 17,
-                        fontWeight: 400,
-                        color: "var(--navy)",
-                      }}
-                    >
-                      {f.q}
-                    </span>
-
-                    <span
-                      style={{
-                        width: 28,
-                        height: 28,
-                        border: "1px solid rgba(16,42,67,.18)",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {openIndex === i ? (
-                        <Minus size={13} className="icon-slate" />
-                      ) : (
-                        <Plus size={13} className="icon-slate" />
-                      )}
+                    <span className="disp" style={{ fontSize: 17, fontWeight: 400, color: "var(--navy)" }}>{f.q}</span>
+                    <span style={{ width: 28, height: 28, border: "1px solid rgba(16,42,67,.18)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {openIndex === i ? <Minus size={13} className="icon-slate" /> : <Plus size={13} className="icon-slate" />}
                     </span>
                   </button>
 
                   <AnimatePresence>
                     {openIndex === i && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                        style={{ overflow: "hidden" }}
-                      >
-                        <p
-                          className="body c-navy-60"
-                          style={{
-                            paddingBottom: 24,
-                            maxWidth: 620,
-                          }}
-                        >
-                          {f.a}
-                        </p>
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} style={{ overflow: "hidden" }}>
+                        <p className="body c-navy-60" style={{ paddingBottom: 24, maxWidth: 620 }}>{f.a}</p>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -1718,10 +1461,7 @@ function FAQ() {
 
       <style>{`
         @media(max-width:767px){
-          .faq-layout{
-            grid-template-columns:1fr !important;
-            gap:45px !important;
-          }
+          .faq-layout{ grid-template-columns:1fr !important; gap:45px !important; }
         }
       `}</style>
     </section>
@@ -1740,8 +1480,8 @@ function FinalCTA() {
           <h2 className="disp h2 c-navy">Have a space worth experiencing?</h2>
           <p className="body-lg c-navy-60" style={{ marginTop: 16 }}>Let's turn it into a story.</p>
           <div className="flex flex-wrap items-center justify-center" style={{ gap: 14, marginTop: 34 }}>
-            <a href="#contact" className="btn btn-navy">Start a Project</a>
-            <a href="#work" className="btn btn-line-navy">View Our Work</a>
+            <Link to="/contact" className="btn btn-navy">Start a Project</Link>
+            <Link to="/work" className="btn btn-line-navy">View Our Work</Link>
           </div>
         </Reveal>
       </div>
@@ -1753,7 +1493,7 @@ function FinalCTA() {
 /*  Contact                                                             */
 /* ------------------------------------------------------------------ */
 
-function Contact() {
+function Contact({ showHeading = true }) {
   const [sent, setSent] = useState(false);
   const [form, setForm] = useState({ name: "", company: "", email: "", property: "", propertyType: "", url: "", message: "" });
 
@@ -1776,18 +1516,19 @@ function Contact() {
     <section id="contact" className="section bg-navy">
       <div className="container grid-gap g2" style={{ display: "grid" }}>
         <Reveal>
-          <span className="eyebrow" style={{ color: "rgba(217,234,247,.7)" }}>Contact</span>
-          <h2 className="disp c-white" style={{ fontSize: 38, fontWeight: 400, lineHeight: 1.2 }}>Start a project.</h2>
-          <p className="body-lg c-white-70" style={{ maxWidth: 380, marginTop: 20 }}>
+          {showHeading && (
+            <>
+              <span className="eyebrow" style={{ color: "rgba(217,234,247,.7)" }}>Contact</span>
+              <h2 className="disp c-white" style={{ fontSize: 38, fontWeight: 400, lineHeight: 1.2 }}>Start a project.</h2>
+            </>
+          )}
+          <p className="body-lg c-white-70" style={{ maxWidth: 380, marginTop: showHeading ? 20 : 0 }}>
             Tell us about your property and we'll follow up to talk it through.
           </p>
           <div className="flex items-center" style={{ gap: 10, marginTop: 32, color: "rgba(255,255,255,.55)" }}>
             <Mail size={16} strokeWidth={1.5} />
             <span style={{ fontSize: 13 }}>hello@alvara.studio</span>
           </div>
-          <a href="#contact" className="body" style={{ display: "inline-block", marginTop: 16, color: "#D9EAF7", textDecoration: "underline" }}>
-            or book a discovery call
-          </a>
         </Reveal>
 
         <Reveal delay={0.15}>
@@ -1833,36 +1574,131 @@ function Contact() {
 /* ------------------------------------------------------------------ */
 
 function Footer() {
+  const links = [
+    { label: "Work", href: "/work" },
+    { label: "Services", href: "/services" },
+    { label: "About", href: "/about" },
+    { label: "Process", href: "/process" },
+    { label: "Contact", href: "/contact" },
+  ];
+
   return (
     <footer className="bg-navy" style={{ padding: "56px 0" }}>
       <div className="container">
         <div className="flex flex-wrap items-center justify-between" style={{ gap: 32 }}>
           <div>
-            <p className="disp c-white" style={{ fontSize: 18 }}>ALVARA</p>
+            <Link to="/" className="disp c-white" style={{ fontSize: 18, textDecoration: "none" }}>ALVARA</Link>
             <p className="caption c-white-45" style={{ marginTop: 6 }}>Cinematic Property Films</p>
           </div>
+
           <nav className="flex flex-wrap" style={{ gap: 22 }}>
-            {["Work", "Services", "About", "Process", "Contact"].map((l) => (
-              <a key={l} href={`#${l.toLowerCase()}`} className="caption c-white-45" style={{ textDecoration: "none" }}>{l}</a>
+            {links.map((item) => (
+              <Link key={item.label} to={item.href} className="caption c-white-45" style={{ textDecoration: "none" }}>
+                {item.label}
+              </Link>
             ))}
           </nav>
+
           <div className="flex items-center" style={{ gap: 20, color: "rgba(255,255,255,.45)" }}>
-            <span style={{ fontSize: "14px", fontWeight: 600 }}>IG</span>
-            <span style={{ fontSize: "14px", fontWeight: 600 }}>in</span>
-            <Play size={16} strokeWidth={1.5} />
-            <Mail size={16} strokeWidth={1.5} />
+            <a href="#" aria-label="Instagram" style={{ color: "inherit", textDecoration: "none", fontSize: 14, fontWeight: 600 }}>IG</a>
+            <a href="#" aria-label="LinkedIn" style={{ color: "inherit", textDecoration: "none", fontSize: 14, fontWeight: 600 }}>in</a>
+            <a href="mailto:hello@alvara.studio" aria-label="Email ALVARA" style={{ color: "inherit", display: "flex", alignItems: "center" }}>
+              <Mail size={16} strokeWidth={1.5} />
+            </a>
           </div>
         </div>
+
         <div className="divider-white" style={{ margin: "36px 0 24px" }} />
+
         <div className="flex flex-wrap items-center justify-between" style={{ gap: 16 }}>
           <p className="body c-white-45" style={{ fontSize: 12.5 }}>Cinematic property films for spaces worth experiencing.</p>
           <div className="flex caption c-white-45" style={{ gap: 20 }}>
-            <span>Privacy</span>
-            <span>Terms</span>
+            <a href="#" style={{ color: "inherit", textDecoration: "none" }}>Privacy</a>
+            <a href="#" style={{ color: "inherit", textDecoration: "none" }}>Terms</a>
           </div>
         </div>
       </div>
     </footer>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Pages                                                               */
+/* ------------------------------------------------------------------ */
+
+function Home() {
+  return (
+    <>
+      <Hero />
+      <Introduction />
+      <VisualStatement />
+      <Portfolio />
+      <CaseStudy />
+      <CameraPhilosophy />
+      <FinalCTA />
+    </>
+  );
+}
+
+function WorkPage() {
+  return (
+    <>
+      <PageHeader
+        eyebrow="Selected Work"
+        title="A selection of spaces, captured in motion."
+        subtitle="Placeholder projects shown below until the full portfolio is in place."
+      />
+      <Portfolio showHeading={false} />
+      <EarlyWork />
+      <FinalCTA />
+    </>
+  );
+}
+
+function ServicesPage() {
+  return (
+    <>
+      <PageHeader eyebrow="What We Create" title="Film work built around how a space actually feels." />
+      <Services showHeading={false} />
+      <WhoWeWorkWith />
+      <FinalCTA />
+    </>
+  );
+}
+
+function AboutPage() {
+  return (
+    <>
+      <PageHeader eyebrow="About ALVARA" title="We create films for spaces that deserve to be experienced." />
+      <About showHeading={false} />
+      <Approach />
+      <WhatWeCareAbout />
+      <CameraPhilosophy />
+    </>
+  );
+}
+
+function ProcessPage() {
+  return (
+    <>
+      <PageHeader eyebrow="Process" title="From still images to cinematic stories." />
+      <Process showHeading={false} />
+      <FAQ />
+      <FinalCTA />
+    </>
+  );
+}
+
+function ContactPage() {
+  return (
+    <>
+      <PageHeader
+        eyebrow="Contact"
+        title="Start a project."
+        subtitle="Tell us about your property and we'll follow up to talk it through."
+      />
+      <Contact showHeading={false} />
+    </>
   );
 }
 
@@ -1872,25 +1708,28 @@ function Footer() {
 
 export default function App() {
   return (
-    <div className="av-root">
-      <style>{css}</style>
-      <Nav />
-      <Hero />
-      <Portfolio />
-      <Introduction />
-      <Services />
-      <WhoWeWorkWith />
-      <CaseStudy />
-      <Approach />
-      <CameraPhilosophy />
-      <About />
-      <Process />
-      <WhatWeCareAbout />
-      <EarlyWork />
-      <FAQ />
-      <FinalCTA />
-      <Contact />
-      <Footer />
-    </div>
+    <>
+      <ViewfinderCursor />
+
+      <div className="av-root">
+        <style>{css}</style>
+
+        <BrowserRouter>
+          <ScrollToTop />
+          <Nav />
+
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/work" element={<WorkPage />} />
+            <Route path="/services" element={<ServicesPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/process" element={<ProcessPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+          </Routes>
+
+          <Footer />
+        </BrowserRouter>
+      </div>
+    </>
   );
 }
